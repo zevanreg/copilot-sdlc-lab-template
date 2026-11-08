@@ -1,0 +1,39 @@
+{
+  "name": "Northstar Hotel",
+  "image": "mcr.microsoft.com/devcontainers/base:bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/dotnet:2": {
+      "version": "10.0",
+      "additionalVersions": "8.0"
+    },
+    "ghcr.io/devcontainers/features/node:2": {
+      "version": "22",
+      "pnpmVersion": "none"
+    }
+  },
+  "forwardPorts": [5050, 5173],
+  "portsAttributes": {
+    "5050": {
+      "label": "Hotel Booking API",
+      "onAutoForward": "silent"
+    },
+    "5173": {
+      "label": "Northstar Hotel",
+      "onAutoForward": "notify"
+    }
+  },
+  "postCreateCommand": {
+    "restore-api": "dotnet restore HotelBooking.slnx",
+    "install-web": "npm ci --prefix src/hotel-booking-web"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csdevkit",
+        "github.copilot",
+        "github.copilot-chat"
+      ]
+    }
+  },
+  "remoteUser": "vscode"
+}

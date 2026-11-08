@@ -1,0 +1,39 @@
+trigger: none
+pr: none
+
+schedules:
+  - cron: '0 7 * * *'
+    displayName: Daily triage and routing
+    branches:
+      include:
+        - main
+    always: true
+
+parameters:
+  - name: action
+    displayName: Board action
+    type: string
+    default: all
+    values:
+      - all
+      - triage
+      - route
+
+variables:
+  - group: ai-sdlc-board
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - checkout: self
+    clean: true
+    persistCredentials: false
+  - task: NodeTool@0
+    inputs:
+      versionSpec: 22.x
+  - script: node .azuredevops/scripts/board-automation.js
+    displayName: Triage and route Azure Boards work items
+    env:
+      BOARD_ACTION: ${{ parameters.action }}
+      ADO_AUTOMATION_TOKEN: $(ADO_AUTOMATION_TOKEN)

@@ -1,0 +1,99 @@
+trigger: none
+pr: none
+
+parameters:
+  - name: workItemId
+    displayName: Approved work item ID
+    type: number
+    default: 0
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  - stage: Verify
+    displayName: Verify human approval and merged PR
+    variables:
+      - group: ai-sdlc-board
+    jobs:
+      - job: Verify
+        steps:
+          - checkout: self
+            clean: true
+            fetchDepth: 0
+            persistCredentials: false
+          - task: NodeTool@0
+            inputs:
+              versionSpec: 22.x
+          - script: node .azuredevops/scripts/release-simulation.js
+            displayName: Verify release gates
+            env:
+              RELEASE_ACTION: verify
+              WORK_ITEM_ID: '${{ parameters.workItemId }}'
+              ADO_AUTOMATION_TOKEN: $(ADO_AUTOMATION_TOKEN)
+
+  - stage: Build
+    displayName: Validate and create simulated artifact
+    dependsOn: Verify
+    jobs:
+      - job: Build
+        steps:
+          - checkout: self
+            clean: true
+            persistCredentials: false
+          - task: UseDotNet@2
+            inputs:
+              packageType: sdk
+              version: 8.0.x
+          - task: UseDotNet@2
+            inputs:
+              packageType: sdk
+              version: 10.0.x
+          - task: NodeTool@0
+            inputs:
+              versionSpec: 22.x
+          - script: dotnet test HotelBooking.slnx --configuration Release
+            displayName: Test API
+          - script: node --test .azuredevops/scripts/automation.test.js
+            displayName: Test Azure DevOps automation
+          - script: npm ci
+            workingDirectory: src/hotel-booking-web
+            displayName: Install locked web dependencies
+          - script: npm run lint
+            workingDirectory: src/hotel-booking-web
+            displayName: Lint web application
+          - script: npm run build
+            workingDirectory: src/hotel-booking-web
+            displayName: Build web application
+          - script: node .azuredevops/scripts/release-simulation.js
+            displayName: Create simulated release artifact
+            env:
+              RELEASE_ACTION: artifact
+              WORK_ITEM_ID: '${{ parameters.workItemId }}'
+          - task: PublishPipelineArtifact@1
+            displayName: Publish simulated release
+            inputs:
+              targetPath: $(Build.SourcesDirectory)/release
+              artifact: simulated-production-release
+
+  - stage: Finalize
+    displayName: Record the successful simulation
+    dependsOn: Build
+    variables:
+      - group: ai-sdlc-board
+    jobs:
+      - job: Finalize
+        steps:
+          - checkout: self
+            clean: true
+            fetchDepth: 0
+            persistCredentials: false
+          - task: NodeTool@0
+            inputs:
+              versionSpec: 22.x
+          - script: node .azuredevops/scripts/release-simulation.js
+            displayName: Recheck gates and update work item
+            env:
+              RELEASE_ACTION: complete
+              WORK_ITEM_ID: '${{ parameters.workItemId }}'
+              ADO_AUTOMATION_TOKEN: $(ADO_AUTOMATION_TOKEN)

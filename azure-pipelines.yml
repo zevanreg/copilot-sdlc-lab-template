@@ -1,0 +1,38 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pr: none
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - checkout: self
+    clean: true
+    persistCredentials: false
+  - task: UseDotNet@2
+    inputs:
+      packageType: sdk
+      version: 8.0.x
+  - task: UseDotNet@2
+    inputs:
+      packageType: sdk
+      version: 10.0.x
+  - task: NodeTool@0
+    inputs:
+      versionSpec: 22.x
+  - script: dotnet test HotelBooking.slnx --configuration Release
+    displayName: Test API
+  - script: node --test .azuredevops/scripts/automation.test.js
+    displayName: Test Azure DevOps automation
+  - script: npm ci
+    workingDirectory: src/hotel-booking-web
+    displayName: Install locked web dependencies
+  - script: npm run lint
+    workingDirectory: src/hotel-booking-web
+    displayName: Lint web application
+  - script: npm run build
+    workingDirectory: src/hotel-booking-web
+    displayName: Build web application
